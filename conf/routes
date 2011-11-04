@@ -7,4 +7,5 @@
 
 #GET     /?                      Module.index
 
-GET     /public/                staticDir:public
+#*       /p                      playjax.P.index
+#GET     /public/                staticDir:public

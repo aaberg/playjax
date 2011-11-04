@@ -1,53 +1,58 @@
-var ignoreNextStateChange = false;
-var ajaxContentId = "playjax_content";
 
-$(function(){
-    $(window).bind('hashchange', function(e){
-        if (ignoreNextStateChange){
-            ignoreNextStateChange = false;
-            return;
-        }
-        var url = $.param.fragment();
-
-        $("#" + ajaxContentId).load(url, function(data, textResult, jqHXR){
-            bindForms();
-            syncBbqState(jqHXR);
-        });
-    });
-
-    $(window).trigger('hashchange');
-});
-
-function bindForms(){
-    $("form").submit(function(e){
-        var form = e.target;
-        var url = form.action;
+function onLinkClick(e){
+    // Check if html5 history api is availlable
+    if (typeof history.pushState != undefined){
 
         e.preventDefault();
 
-        $.ajax({
-            url: url,
-            method: form.method,
-            data: $(form).serialize(),
-            success: submitCallback
-        })
+        var url = $(e.target).attr("href");
 
+        doAjax(url, undefined, "get");
+    }
+}
+
+function onFormSubmit(e){
+    if (typeof history.pushState != undefined){
+        var form = e.target,
+            data = $(form).serialize(),
+            url = form.action,
+            method = form.method == "" ? "get" : form.method;
+
+        doAjax(url, data, method);
         return false;
+    }
+    else{
+        return true;
+    }
+}
+
+function doAjax(url, data, method){
+
+    $.ajax({
+        url: url,
+        type: method,
+        data: data,
+        beforeSend: onBeforeSend,
+        success: function(result, status, xhr){
+            var respUrl = xhr.getResponseHeader("playjax_location");
+            history.pushState(result, 'test', respUrl);
+            $("#contentContainer").html(result);
+
+            bind();
+        }
     });
 }
 
-function submitCallback(data, textResult, jqHXR){
-    $("#" + ajaxContentId).html(data);
-    syncBbqState(jqHXR);
+function onBeforeSend(xhr){
+    xhr.setRequestHeader("playjax_isAjax", "true");
 }
 
-function syncBbqState(jqHXR){
-    var location = jqHXR.getResponseHeader("playjax_location");
-    var state = $.param.fragment();
-
-    if (location != state){
-        ignoreNextStateChange = true;
-        $.bbq.pushState(location, 2);
-    }
-
+function bind(){
+    $("a").unbind("click", onLinkClick).bind("click", onLinkClick);
+    $("form").unbind("submit", onFormSubmit).bind("submit", onFormSubmit);
 }
+
+$(function(){
+
+    bind();
+});
